@@ -1,0 +1,13 @@
+README
+
+Documentation on plugins for ISI_analysisGUI.
+
+To add a plugin, create a directory within the /plugins/ folder. Within the new folder, create
+an .m file with the same name as your directory. This file is by default executed by
+ISI_analysis.GUI when you run a plugin from the GUI.
+
+At startup, the GUI scans the /plugins/ folders and populates a pop-up menu with the names of
+all sub-folders contained therein.
+
+
+Last updated Mar 16th 2012 by Per Magne Knutsen <pmknutsen@gmail.com>
