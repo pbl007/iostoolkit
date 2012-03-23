@@ -30,11 +30,11 @@ function varargout = ISI_analysisGUI(varargin)
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @ISI_analysisGUI_OpeningFcn, ...
-                   'gui_OutputFcn',  @ISI_analysisGUI_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
+    'gui_Singleton',  gui_Singleton, ...
+    'gui_OpeningFcn', @ISI_analysisGUI_OpeningFcn, ...
+    'gui_OutputFcn',  @ISI_analysisGUI_OutputFcn, ...
+    'gui_LayoutFcn',  [] , ...
+    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
     gui_State.gui_Callback = str2func(varargin{1});
 end
@@ -82,7 +82,7 @@ varargout{1} = handles.output;
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % file/path info
 
 
@@ -141,11 +141,15 @@ if isempty(eventdata)
     curdir = pwd;
     cd(handles.pathstr); %load to path directory
     oldfile=get(handles.data_filename,'string');
-    datafile=uigetfile('*.dat');
+    [datafile,path2file]=uigetfile('*.dat');
     
     if datafile==0, datafile=oldfile; end %cancelled out
     cd(curdir);
     set(handles.data_filename,'string',datafile);
+    %update also path to selected file
+    set(handles.path,'string',path2file);
+    handles.pathstr=path2file;
+    
 else
     % use passed file name
     datafile = eventdata;
@@ -157,7 +161,9 @@ name=regexp(datafile,'(.+)_\w{6}.dat','tokens');
 if ~isempty(name)
     set(handles.whiskername,'string',name{1});
 else
-    warning('ISI_analysisGUI:getdatafile','Couldn''t isolate whisker name, please enter it manually.');
+    %     warning('ISI_analysisGUI:getdatafile','Couldn''t isolate whisker name, please enter it manually.');
+    warndlg('Couldn''t isolate whisker name, please enter it manually.','ISI_analysisGUI:getdatafile');
+    
     set(handles.whiskername,'string','');
 end
 
@@ -225,7 +231,7 @@ nolightfile=uigetfile('*.dat');
 set(handles.nolight_filename,'string',nolightfile);
 guidata(hObject, handles);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % analysis parameters
 function preStimDurSec_Callback(hObject, eventdata, handles) %#ok
 
@@ -296,9 +302,9 @@ if isnan(value) || ( value<0 || value>1 )
     errordlg('Mask threshold value must be between 0 and 1','Incorrect mask threshold');
     set(hObject,'string','0');
 end
-    
-    
-    
+
+
+
 % --- Executes during object creation, after setting all properties.
 function maskthresh_CreateFcn(hObject, eventdata, handles) %#ok
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -321,7 +327,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % buttons
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -366,7 +372,7 @@ for nFi = 1:nLoop
             break;
         end
     end
-
+    
     %first set the general parameters.
     setParams.saveMovie=get(handles.chk_savemovie,'value');
     setParams.saveFig=get(handles.chk_writesigframe,'value');
@@ -459,7 +465,7 @@ for nFi = 1:nLoop
         %rethrow(e);
         break;
     end
-
+    
 end
 if exist('hWait')
     if ishandle(hWait)
@@ -674,21 +680,21 @@ return
 function popup_plugins_Callback(hObject, eventdata, handles)
 % Run selected plugin
 sPlugin = get(hObject, 'string');
-
+sPluginId = get(hObject,'value');
 % Get plugin path
 sPwd = pwd;
 sPath = mfilename('fullpath');
 vIndx = findstr(filesep, sPath);
-sPath = [sPath(1:vIndx(end)) 'plugins' filesep sPlugin{1} filesep];
+sPath = [sPath(1:vIndx(end)) 'plugins' filesep sPlugin{sPluginId} filesep];
 
 % Change current directory to plugin folder as files therein may not be in the Matlab path
 cd(sPath)
 
 % Run plugin
 try
-    eval(sPlugin{1})
+    eval(sPlugin{sPluginId})
 catch
-    errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{1}, lasterr))
+    errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{sPluginId}, lasterr))
 end
 cd(sPwd)
 
@@ -708,6 +714,8 @@ sPwd = pwd;
 cd(sPath)
 tDir = dir;
 cPlugins = {};
+entryIsDir = [tDir.isdir]%keep only directories
+tDir = tDir(entryIsDir);
 for i = 3:length(tDir)
     if tDir(i).isdir
         cPlugins{i-2} = tDir(i).name;
