@@ -58,6 +58,7 @@ function ISI_analysisGUI_OpeningFcn(hObject, eventdata, handles, varargin) %#ok
 handles.pathstr = pwd;     % initial file directory
 set(handles.path,'string',handles.pathstr);
 
+set(hObject,'Tag', 'ISIanalysisGUI_fig')
 
 % Choose default command line output for ISI_analysisGUI
 handles.output = hObject;
@@ -342,7 +343,7 @@ function btn_run_Callback(hObject, eventdata, handles) %#ok
 % Iterate over files
 if get(handles.process_all_files, 'value')
     % Get list of all .dat files in directory
-    sFileList = dir('*.dat');
+    sFileList = dir(fullfile(handles.pathstr,'*.dat'));
 else
     sFileList = get(handles.data_filename, 'string');
 end
@@ -692,7 +693,7 @@ cd(sPath)
 
 % Run plugin
 try
-    eval(sPlugin{sPluginId})
+    eval(sprintf('%s(hObject, eventdata, handles);',sPlugin{sPluginId}))
 catch
     errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{sPluginId}, lasterr))
 end
