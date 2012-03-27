@@ -55,7 +55,7 @@ end
 % Estimate frames/trial from file filesize and known header sizes
 nFrameSize = size_x * size_y * 2; % bytes
 nHeaderSize = 20 + (ntrials * 47); % each trial has headers of 47 bytes
-nFramesPerTrial = (nFileSize-nHeaderSize) / nFrameSize / ntrials;
+nFramesPerTrial = int32((nFileSize-nHeaderSize) / nFrameSize / ntrials);
 
 % Print file into to prompt
 fprintf('\nFilename:\t\t%s\nTrials:\t\t\t%d\nFrame Rate:\t\t%d frames/s\nBin Duration:\t%d frames / %.2f s\nFrame Size:\t\t%dx%d px\nFrames/trial:\t%d\nBit Depth:\t\t%d\nTrial Duration:\t%d s\nTrials Used:\t%s\n',...
