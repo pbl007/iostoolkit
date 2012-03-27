@@ -14,10 +14,10 @@ prmts.svd.numModesToCompute = []; %leave empty to compute all
 prmts.svd.numModesToKeep = 3;
 prmts.svd.downsampleFactor = 0.5; % set to 0 to skip, values larger than 1 will be truncated
 prmts.svd.DoDenoise = 0;
-prmts.svd.DoDisplayEigenvalues = 1;
+prmts.svd.DoDisplayEigenvalues = 0;
 prmts.svd.DoDisplayMeanSubData = 0;
 prmts.svd.DoDisplayDenoised = 0;
-prmts.svd.DoDisplaySpatialModes = 1;
+prmts.svd.DoDisplaySpatialModes = 0;
 prmts.svd.DoSaveSpatialModesToFile = 1;
 
 %validate svd prmts
@@ -179,12 +179,14 @@ ylabel('Log(\lambda_i^2)')
 xlabel('Ranked index (i)')
 box off
 
-if prmts.svd.DoDisplayEigenvalues;set(h2fig,'visible','on');end
+
 
 %save analysis and figure
 save(fullfile(prmts.path2dir,[prmts.baseName '_svd_analysis.mat']),'X','u','s','v');
 saveas(h2fig,fullfile(prmts.path2dir,get(h2fig,'name')),'png')
 saveas(h2fig,fullfile(prmts.path2dir,get(h2fig,'name')),'eps')
+if prmts.svd.DoDisplayEigenvalues;set(h2fig,'visible','on');else close (h2fig);end
+
 
 % denoise and display
 %keep only the first M
@@ -223,12 +225,12 @@ if prmts.svd.DoDisplaySpatialModes || prmts.svd.DoSaveSpatialModesToFile
     
     if prmts.svd.DoSaveSpatialModesToFile
         figName = get(h2fig,'name');
-        saveas(h2fig,figName,'png')
-        saveas(h2fig,figName,'eps')
+        saveas(h2fig,fullfile(prmts.path2dir,figName),'png')
+        saveas(h2fig,fullfile(prmts.path2dir,figName),'eps')
     end
     
     if ~prmts.svd.DoDisplaySpatialModes;close(h2fig);else set(h2fig,'visible','on');end
     
-        
+    
 end
 
