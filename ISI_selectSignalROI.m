@@ -1,7 +1,6 @@
 function ISIdata = ISI_selectSignalROI(ISIdata, prmts, cmap)
 % ISI_selectSignalROI
-%
-
+% Manually select regions of interest on top of vessel or signal images.
 
 % Display reference image and let user select ROI for analysis.
 mFrame = ISIdata.signalFrame;
