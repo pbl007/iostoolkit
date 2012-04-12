@@ -49,6 +49,18 @@ if isstruct(sFileList)
     nLoop = length(sFileList);
 else
     nLoop = 1;
+    tmp.name = sFileList;
+    clear sFileList;
+    sFileList = tmp;
+end
+
+%create target fig export directories if not existent
+eigDirTarget = fullfile(prmts.path2dir,'Eigenvalues');
+if ~isdir(eigDirTarget);mkdir(eigDirTarget);end
+
+if prmts.svd.DoSaveSpatialModesToFile
+    spatialModesDirTarget = fullfile(prmts.path2dir,'SpatialModes');
+    if ~isdir(spatialModesDirTarget); mkdir(spatialModesDirTarget);end
 end
 
 % run all task(s)
@@ -183,8 +195,10 @@ box off
 
 %save analysis and figure
 save(fullfile(prmts.path2dir,[prmts.baseName '_svd_analysis.mat']),'X','u','s','v');
-saveas(h2fig,fullfile(prmts.path2dir,get(h2fig,'name')),'png')
-saveas(h2fig,fullfile(prmts.path2dir,get(h2fig,'name')),'eps')
+figName = get(h2fig,'name');
+export_fig(fullfile(prmts.path2dir,['Eigenvalues' filesep figName]),'-eps','-png');
+% saveas(h2fig,fullfile(prmts.path2dir,['Eigenvalues' filesep figName]),'png')
+% saveas(h2fig,fullfile(prmts.path2dir,['Eigenvalues' filesep figName]),'eps')
 if prmts.svd.DoDisplayEigenvalues;set(h2fig,'visible','on');else close (h2fig);end
 
 
@@ -208,7 +222,7 @@ end
 %% display modes (must create figure to save it
 if prmts.svd.DoDisplaySpatialModes || prmts.svd.DoSaveSpatialModesToFile
     
-    h2fig = figure('Color','w','Name',sprintf('%s_SpatialModes',prmts.baseName),'visible','off');
+    h2fig = figure('Color','w','Name',sprintf('%s_SpatialModes',prmts.baseName),'visible','on');
     nspcols = ceil(sqrt(numModesToCompute));
     nsprows = ceil(numModesToCompute/nspcols);
     
@@ -225,8 +239,10 @@ if prmts.svd.DoDisplaySpatialModes || prmts.svd.DoSaveSpatialModesToFile
     
     if prmts.svd.DoSaveSpatialModesToFile
         figName = get(h2fig,'name');
-        saveas(h2fig,fullfile(prmts.path2dir,figName),'png')
-        saveas(h2fig,fullfile(prmts.path2dir,figName),'eps')
+        set(h2fig,'units','norm','pos',[0 0 1 1]);drawnow
+        export_fig(fullfile(prmts.path2dir,['SpatialModes' filesep figName]),'-native','-eps','-png');
+        %         saveas(h2fig,fullfile(prmts.path2dir,['SpatialModes' filesep figName]),'png')
+        %         saveas(h2fig,fullfile(prmts.path2dir,['SpatialModes' filesep figName]),'eps')
     end
     
     if ~prmts.svd.DoDisplaySpatialModes;close(h2fig);else set(h2fig,'visible','on');end
