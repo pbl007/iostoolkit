@@ -4,7 +4,8 @@ function varargout = ISI_analysisGUI(varargin)
 %      the existing
 %      singleton*.
 %
-%      H = ISI_analysisGUI returns the handle to a new ISI_analysisGUI or the handle to
+%      H = ISI_analysisGUI returns the handle to a new ISI_analysisGUI or
+%      the handle to
 %      the existing singleton*.
 %
 %      ISI_analysisGUI('CALLBACK',hObject,eventData,handles,...) calls the local
@@ -25,7 +26,7 @@ function varargout = ISI_analysisGUI(varargin)
 % 2011.10.31    mjp     initial version
 
 
-% Last Modified by GUIDE v2.5 16-Mar-2012 12:44:46
+% Last Modified by GUIDE v2.5 03-Apr-2012 17:56:21
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -291,6 +292,9 @@ function chk_savemat_Callback(hObject, eventdata, handles) %#ok
 % --- Executes on button press in chk_vesselmask.
 function chk_vesselmask_Callback(hObject, eventdata, handles) %#ok
 
+% --- Executes on button press in chk_manualmask.
+function chk_manualmask_Callback(hObject, eventdata, handles) %#ok
+
 % --- Executes on button press in chk_nolight.
 function chk_nolight_Callback(hObject, eventdata, handles) %#ok
 
@@ -303,20 +307,17 @@ if isnan(value) || ( value<0 || value>1 )
     errordlg('Mask threshold value must be between 0 and 1','Incorrect mask threshold');
     set(hObject,'string','0');
 end
-
-
+return
 
 % --- Executes during object creation, after setting all properties.
 function maskthresh_CreateFcn(hObject, eventdata, handles) %#ok
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
-
+return
 
 % --- Executes on button press in chk_selectROI.
 function chk_selectROI_Callback(hObject, eventdata, handles) %#ok
-
 
 
 function stiminterval_hi_Callback(hObject, eventdata, handles) %#ok
@@ -380,6 +381,10 @@ for nFi = 1:nLoop
     setParams.saveFigAll = get(handles.chk_writesigframeall,'value');
     setParams.saveToMat=get(handles.chk_savemat,'value');
     setParams.useVesselMask=get(handles.chk_vesselmask,'value');
+    
+    % Get manual mask
+    setParams.filesQueue.useManualMask=get(handles.chk_manualmask,'value');
+    setParams.filesQueue.manualMask = get(handles.btn_setmanualmask, 'userdata');
     
     %create the struct for all file parameters
     setParams.filesQueue.path2dir = handles.pathstr;
@@ -492,6 +497,7 @@ else
     ISI_viewMask(fullfile(handles.pathstr, get(handles.vessel_filename,'string')),...
         str2double(get(handles.maskthresh,'string')));
 end
+return
 
 function trials2use_Start_Callback(hObject, eventdata, handles)
 
@@ -715,7 +721,7 @@ sPwd = pwd;
 cd(sPath)
 tDir = dir;
 cPlugins = {};
-entryIsDir = [tDir.isdir]%keep only directories
+entryIsDir = [tDir.isdir]; % keep only directories
 tDir = tDir(entryIsDir);
 for i = 3:length(tDir)
     if tDir(i).isdir
@@ -727,4 +733,10 @@ cd(sPwd)
 % Update popup menu in GUI
 set(hObject, 'string', cPlugins)
 
+return
+
+
+% --- Executes on button press in btn_setmanualmask.
+function btn_setmanualmask_Callback(hObject, eventdata, handles) %#ok
+tMask = ISI_setManualMask(fullfile(handles.pathstr, get(handles.vessel_filename,'string')), hObject);
 return

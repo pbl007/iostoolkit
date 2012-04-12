@@ -7,6 +7,7 @@ function h = ISI_plotAllFrames(ISIdata, clim, prmts, cmap)
 %
 
 h = figure;
+set(h, 'color', 'k')
 colormap(cmap);
 
 % 1st derivative (change in pixel values over time)
@@ -20,12 +21,12 @@ end
 totalNframes = ISIdata.nFramesPerTrial - nDer;
 maxrow = 5; % more than this really won't fit on screen
 nrow = maxrow;
-ncol = ceil(totalNframes/maxrow);
+ncol = double(ceil(totalNframes/maxrow));
 if ncol <= maxrow - 2 % narrow number of cols, try recalculating
     nrow = maxrow - 1;
     ncol = ceil(totalNframes/nrow);
 end
-nframes=1;
+nframes = 1;
 
 if ~isnan(prmts.smoothSigma)
     mWin = fspecial('gaussian', prmts.smoothSigma*3, prmts.smoothSigma);
@@ -52,6 +53,14 @@ for j = 1:nrow
             % Smooth frame
             if ~isnan(mWin)
                 frame = single(filter2(mWin, frame, 'same'));
+            end
+            
+            % Mask frame
+            if prmts.useManualMask
+                tMask = prmts.manualMask;
+                if ~isempty(tMask)
+                    frame(~tMask.mROI) = NaN;
+                end
             end
             
             % Display frame

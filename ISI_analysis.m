@@ -5,12 +5,14 @@ function [prmts, ISIdata] = ISI_analysis(prmts)
 
 %  modified from Pablo Blinder, ISI_analysis_trialBased.m
 %  M.Pesavento 2010.12.30
-
+%
 % 2011.07.04 mjp changed from script to function, removed multifile
 %           specifications, cleaned up function calls
-
+%
 % 2012.02.02 Per Magne Knutsen
 %            Change to transition all functions to be called from GUI.
+% 2012.04.03 Added manual mask. PMK
+%
 
 sColMap = 'gray';
 
