@@ -29,7 +29,7 @@ figure(89)
 colormap(hot)
 imagesc(mMap)
 colorbar
-set(gca, 'clim', vCLim)
+%set(gca, 'clim', vCLim)
 hTit = title(sFile);
 set(hTit, 'interpreter', 'none');
 axis equal

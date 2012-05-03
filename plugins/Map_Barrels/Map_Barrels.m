@@ -57,6 +57,8 @@ else
     % each putative barrel manually
     
     % Get list of all .mat files (mapped whiskers)
+    sPwd = pwd;
+    cd(sPath)
     sList = dir('*.mat');
 
     % get all masked maps (interactively since we need to draw the ROI for each file)
@@ -89,6 +91,7 @@ else
     % Save IOSPeaks.mat file
     save IOSPeaks.mat tIOSPeaks
     
+    cd(sPwd)
 end
 
 % Generate the max projection all-barrels map
@@ -110,7 +113,8 @@ for i = 1:length(cMaskMapT)
     end
 
     % normalize
-    mMap = mMap - min(mMap(:));
+    vUniq = sort(unique(mMap(:)));
+    mMap = mMap - vUniq(2);
     mMap = mMap ./ max(max(mMap));
     if all(isnan(mMap(:))), continue, end
     

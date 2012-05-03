@@ -26,7 +26,7 @@ function varargout = ISI_analysisGUI(varargin)
 % 2011.10.31    mjp     initial version
 
 
-% Last Modified by GUIDE v2.5 03-Apr-2012 17:56:21
+% Last Modified by GUIDE v2.5 27-Apr-2012 15:57:25
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -70,6 +70,8 @@ guidata(hObject, handles);
 % UIWAIT makes ISI_analysisGUI wait for user response (see UIRESUME)
 % uiwait(handles.ISIanalysisGUI_fig);
 
+% Add plugin folder to path
+addpath([fileparts(mfilename('fullpath')) filesep 'plugins']);
 
 return
 
@@ -306,6 +308,12 @@ value=str2double(get(hObject,'string'));
 if isnan(value) || ( value<0 || value>1 )
     errordlg('Mask threshold value must be between 0 and 1','Incorrect mask threshold');
     set(hObject,'string','0');
+end
+set(handles.slider_maskThresh, 'value', value)
+% mask preview window is open, then update it
+hFig = findobj('tag', 'ISI_maskPreview');
+if ~isempty(hFig)
+    btn_viewmask_Callback(hObject, eventdata, handles)
 end
 return
 
@@ -694,8 +702,8 @@ sPath = mfilename('fullpath');
 vIndx = findstr(filesep, sPath);
 sPath = [sPath(1:vIndx(end)) 'plugins' filesep sPlugin{sPluginId} filesep];
 
-% Change current directory to plugin folder as files therein may not be in the Matlab path
-cd(sPath)
+% Add path
+addpath(sPath)
 
 % Run plugin
 try
@@ -703,7 +711,7 @@ try
 catch
     errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{sPluginId}, lasterr))
 end
-cd(sPwd)
+%cd(sPwd)
 
 return
 
@@ -740,3 +748,25 @@ return
 function btn_setmanualmask_Callback(hObject, eventdata, handles) %#ok
 tMask = ISI_setManualMask(fullfile(handles.pathstr, get(handles.vessel_filename,'string')), hObject);
 return
+
+
+% --- Executes on slider movement.
+function slider_maskThresh_Callback(hObject, eventdata, handles)
+set(handles.maskthresh, 'string', num2str(get(hObject, 'value')))
+% mask preview window is open, then update it
+hFig = findobj('tag', 'ISI_maskPreview');
+if ~isempty(hFig)
+    btn_viewmask_Callback(hObject, eventdata, handles)
+end
+return
+
+% --- Executes during object creation, after setting all properties.
+function slider_maskThresh_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to slider_maskThresh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
