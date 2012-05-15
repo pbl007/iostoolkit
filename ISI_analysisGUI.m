@@ -873,6 +873,9 @@ return
 function LoadGUIState(handles)
 vChild = findobj(handles.ISIanalysisGUI_fig);
 sLoadFile = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
+if ~exist(sLoadFile, 'file')
+    return
+end
 load(sLoadFile)
 csFieldnames = fieldnames(tState);
 for t = 1:length(csFieldnames)
