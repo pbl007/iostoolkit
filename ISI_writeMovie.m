@@ -19,7 +19,7 @@ if ~isfield(ISIdata,'deltaSignal')
     error('deltaSignal does not exist');
 end
 
-hmovie=figure('color',[.7 .7 .7],'name',['Trial averaged moving average ' prmts.name]);
+hmovie = figure('color',[.7 .7 .7],'name',['Trial averaged moving average ' prmts.name]);
 set(hmovie,'DoubleBuffer','on');
 set(gca,'xlim',[1 ISIdata.frameSizeYX(2)],'ylim',[1 ISIdata.frameSizeYX(1)],...
     'NextPlot','replace','Visible','off');
@@ -51,6 +51,24 @@ for fi = 1:ISIdata.nFramesPerTrial
         img = single(filter2(mWin, img, 'same'));
     end
     
+    % Mask frame
+    if prmts.useManualMask
+        tMask = prmts.manualMask;
+        if ~isempty(tMask)
+            img(~tMask.mROI) = NaN;
+            % Crop image
+            [vI, vJ] = find(~isnan(img));
+            vI = [min(vI) max(vI)];
+            vJ = [min(vJ) max(vJ)];
+            img = imcrop(img, [vJ(1) vI(1) diff(vJ) diff(vI)]);
+        end
+    end
+    
+    % Replace NaN's with zeros
+    img(isnan(img)) = 0;
+    
+    if ~ishandle(hmovie), return, end
+    figure(hmovie)
     imagesc(img);
     
     title(sprintf('Frame # %d', fi));

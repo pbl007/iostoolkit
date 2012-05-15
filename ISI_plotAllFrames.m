@@ -19,7 +19,7 @@ else
 end
 
 totalNframes = ISIdata.nFramesPerTrial - nDer;
-maxrow = 5; % more than this really won't fit on screen
+maxrow = 5;
 nrow = maxrow;
 ncol = double(ceil(totalNframes/maxrow));
 if ncol <= maxrow - 2 % narrow number of cols, try recalculating
@@ -27,6 +27,10 @@ if ncol <= maxrow - 2 % narrow number of cols, try recalculating
     ncol = ceil(totalNframes/nrow);
 end
 nframes = 1;
+
+nrow = floor(sqrt(double(totalNframes))) - 3;
+ncol = round(double(totalNframes) / nrow);
+
 
 if ~isnan(prmts.smoothSigma)
     mWin = fspecial('gaussian', prmts.smoothSigma*3, prmts.smoothSigma);
@@ -84,13 +88,13 @@ for j = 1:nrow
         
         hTxt = text(15, 30, [num2str(nT) ' s'], ...
             'color', 'w', 'backgroundcolor', 'k'); % modified Per Jan 10th 2012
-        set(hTxt, 'fontsize', 8)
+        set(hTxt, 'fontsize', 7)
         nframes=nframes+1;
         
     end
 end
 
-set(h, 'position',[20 50 1200 670]);
+set(h, 'position',[20 50 1200 670], 'color', 'k');
 
 return
 
