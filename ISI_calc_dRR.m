@@ -45,6 +45,21 @@ hWait = waitbar(0,'Averaging frames across trials...');
 centerfig(hWait, findobj('Tag', 'ISIanalysisGUI_fig'));
 drawnow;
 
+% For each trial, find frames where global motion exceeds a threshold.
+% These frames are then ignored below when computing baseline and signal frames.
+mIgnoreFrames = sparse(size(ISIdata.frameStack, 1), size(ISIdata.frameStack, 2));
+if prmts.useMotionCorrection
+    mGlobChange = zeros(size(ISIdata.frameStack));
+    for ti = trials2use
+        cFrames = ISIdata.frameStack(ti, :);
+        mFrames = reshape(cell2mat(cFrames), [512 512 size(cFrames, 2)]);
+        mDiffFrames = diff(mFrames, 1, 3);
+        mGlobChange(ti, :) = [0; squeeze(sum(sum(abs(mDiffFrames), 1), 2)) ./ numel(mDiffFrames(:,:,1))];
+    end
+    nThresh = mean(mGlobChange(:)) + 2*std(mGlobChange(:));
+    mIgnoreFrames = mGlobChange >= nThresh;
+end
+
 % Iterate over trials
 normalizingFrames = {};
 for ti = trials2use
@@ -53,9 +68,12 @@ for ti = trials2use
     end
     
     % Get average of baseline for trial ti
+    % Ignore frames with large global changes
     baseframeix = 1:ISIdata.nPreStimFrames;
+    baseframeix = setdiff(baseframeix, find(mIgnoreFrames(ti, :)));
+    
     baselineFrames = single(cell2mat(ISIdata.frameStack(ti,baseframeix)));
-    baselineFrames = reshape(baselineFrames(:),[ISIdata.frameSizeYX ISIdata.nPreStimFrames ]);
+    baselineFrames = reshape(baselineFrames(:), [ISIdata.frameSizeYX length(baseframeix)]);
     baselineTrial = mean(baselineFrames,3)'; 
     baselineTrialMedianCorr = baselineTrial - median(baselineTrial(:));
     ISIdata.baselineTrial{ti} = single(baselineTrial);
@@ -71,7 +89,13 @@ for ti = trials2use
         if isempty(ISIdata.frameStack{ti,fi})
             warning('Missing frames in ISIdata.frameStack')
         end
-        deltaSignalSum{fi} = deltaSignalSum{fi} + single((ISIdata.frameStack{ti,fi}' - baselineTrial) ./ normalizingFrame);
+        % If frames is to be ignored, add the mean signal to deltaSignalSum instead
+        if mIgnoreFrames(ti, fi)
+            mSigFrameMean = (ISIdata.frameStack{ti,fi}' - baselineTrial) ./ normalizingFrame;
+            deltaSignalSum{fi} = deltaSignalSum{fi} + single( repmat(mean(mSigFrameMean(:)), size(normalizingFrame)) );
+        else
+            deltaSignalSum{fi} = deltaSignalSum{fi} + single((ISIdata.frameStack{ti,fi}' - baselineTrial) ./ normalizingFrame);
+        end
     end
 
     % Don't think we actually need to be saving these
@@ -114,7 +138,11 @@ close(hWait)
 
 % Assign variables to output structure
 ISIdata.normFrame = normalizingFrame;
-ISIdata.deltaSignal = deltaSignal;%deltaSignalMedianCorrected;
+if prmts.useMedianCorrection
+    ISIdata.deltaSignal = deltaSignalMedianCorrected;
+else
+    ISIdata.deltaSignal = deltaSignal;
+end
 ISIdata.climAll = [minpm maxpm]; % use values from median corrected r
 
 % Clear some variables to conserve memory

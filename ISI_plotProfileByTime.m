@@ -76,7 +76,12 @@ for r = 1:length(tProfile)
         
         % Get width at half-peak
         [nMin, nMinxIndx] = min(vProfileMean);
-        vWidths(f) = max(diff(find(vProfileMean > nMin/2)));
+        vIndx = find(vProfileMean > [nMin/2]);
+        if isempty(vIndx)
+            vWidths(f) = NaN;
+        else
+            vWidths(f) = max(diff(vIndx));
+        end
         
         figure(hFig)
         axes(hAx)
@@ -140,9 +145,6 @@ for r = 1:length(tProfile)
     
 end
 
-
-
-keyboard
 
 return
 

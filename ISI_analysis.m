@@ -103,6 +103,7 @@ for iFile = 1 : numel(prmts.filesQueue)
         drawnow;
         savefilename = fullfile(prmts.filesQueue.path2dir, prmts.filesQueue.name);
         [p n e] = fileparts(savefilename);
+        set(gcf, 'Name', savefilename, 'numberTitle', 'off')
         saveas(gcf, fullfile(p,[n '_AllFrames.png']), 'png');
     end
     

@@ -73,15 +73,21 @@ while 1
     plot(cXi{end}, cYi{end}, 'o-', 'color', mCols(length(cROImask), :))
     axes(hAx(2))
     plot(cXi{end}, cYi{end}, 'o-', 'color', mCols(length(cROImask), :))
-    sAns = questdlg('Do want to draw one more ROI?', 'ROI', ...
-        'Yes', 'No', 'No');
-    if isempty(sAns) || strcmp(sAns, 'No')
+
+    % Check if ESC was pressed
+    if isempty(cROImask{end})
         break
+    else
+        sAns = questdlg('Do want to draw one more ROI?', 'ROI', ...
+            'Yes', 'No', 'No');
+        if isempty(sAns) || strcmp(sAns, 'No')
+            break
+        end
     end
 end
 
 % Store results
-if ~isempty(cROImask)
+if ~isempty(cROImask{:})
     ISIdata.analysisSignalROI = struct('mROI', cROImask, 'vXi', cXi, 'vYi', cYi);
 end
 

@@ -28,11 +28,11 @@ if ncol <= maxrow - 2 % narrow number of cols, try recalculating
 end
 nframes = 1;
 
-nrow = floor(sqrt(double(totalNframes))) - 3;
+nrow = floor(sqrt(double(totalNframes))) - 2;
 ncol = round(double(totalNframes) / nrow);
 
 
-if ~isnan(prmts.smoothSigma)
+if ~isnan(prmts.smoothSigma) && prmts.smoothSigma > 0
     mWin = fspecial('gaussian', prmts.smoothSigma*3, prmts.smoothSigma);
 else
     mWin = NaN;
