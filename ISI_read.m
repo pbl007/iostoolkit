@@ -74,7 +74,7 @@ end
 
 fseek(fid, 25-4, 0);
 
-hWait = waitbar(0,'Loading frames. Please wait...');
+hWait = waitbar(0,'Loading frames...');
 
 h2fig = findobj('Tag', 'ISIanalysisGUI_fig');%ensure function can stil be run w/o GUI
 if ~isempty(h2fig);centerfig(hWait, h2fig);end
