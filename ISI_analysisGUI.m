@@ -26,7 +26,7 @@ function varargout = ISI_analysisGUI(varargin)
 % 2011.10.31    mjp     initial version
 
 
-% Last Modified by GUIDE v2.5 27-Apr-2012 15:57:25
+% Last Modified by GUIDE v2.5 04-May-2012 14:23:06
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -112,7 +112,7 @@ end
 % --- Executes on button press in getPath.
 function getPath_Callback(hObject, eventdata, handles)  %#ok
 oldpath=handles.pathstr;
-if isempty(oldpath), oldpath=pwd;  end
+if isempty(oldpath) || ~isstr(oldpath), oldpath=pwd;  end
 curpath=uigetdir(oldpath);
 if curpath==0, curpath=pwd; end %cancelled out
 set(handles.path,'string',curpath);
@@ -160,7 +160,7 @@ else
     set(handles.data_filename,'string',datafile);
 end
 
-name=regexp(datafile,'(.+)_\w{6}.dat','tokens');
+name = regexp(datafile,'(.+)_\w{6}.dat','tokens');
 
 if ~isempty(name)
     set(handles.whiskername,'string',name{1});
@@ -176,6 +176,8 @@ guidata(hObject, handles);
 hGUI = findobj('Tag', 'ISIanalysisGUI_fig');
 set(hGUI, 'UserData', [])
 
+% Load last saved GUI state for selected file
+LoadGUIState(handles)
 return
 
 
@@ -383,6 +385,9 @@ for nFi = 1:nLoop
         end
     end
     
+    % Save all GUI settings and associate _settings.mat file current .dat file
+    SaveGUIState(handles)
+    
     %first set the general parameters.
     setParams.saveMovie=get(handles.chk_savemovie,'value');
     setParams.saveFig=get(handles.chk_writesigframe,'value');
@@ -400,9 +405,13 @@ for nFi = 1:nLoop
     setParams.filesQueue.refImage=get(handles.vessel_filename,'string');
     setParams.filesQueue.precision='int16';
     if ~isempty( [get(handles.trials2use_Start, 'string')] ) && ~isempty( [get(handles.trials2use_End, 'string')] )
-        setParams.filesQueue.Trials2Use= str2double(get(handles.trials2use_Start, 'string')):str2double(get(handles.trials2use_End, 'string'));
+        setParams.filesQueue.Trials2Use = str2double(get(handles.trials2use_Start, 'string')):str2double(get(handles.trials2use_End, 'string'));
     else
         setParams.filesQueue.Trials2Use = [];
+    end
+    setParams.filesQueue.Trials2Exclude = [];
+    if ~isempty(get(handles.trials2exclude, 'string'))
+        setParams.filesQueue.Trials2Exclude = str2num(get(handles.trials2exclude, 'string'));
     end
     setParams.filesQueue.Whisker=get(handles.whiskername,'string');
     setParams.filesQueue.minFaces=50; %ignores contours that would be too small
@@ -743,12 +752,10 @@ set(hObject, 'string', cPlugins)
 
 return
 
-
 % --- Executes on button press in btn_setmanualmask.
 function btn_setmanualmask_Callback(hObject, eventdata, handles) %#ok
 tMask = ISI_setManualMask(fullfile(handles.pathstr, get(handles.vessel_filename,'string')), hObject);
 return
-
 
 % --- Executes on slider movement.
 function slider_maskThresh_Callback(hObject, eventdata, handles)
@@ -762,11 +769,130 @@ return
 
 % --- Executes during object creation, after setting all properties.
 function slider_maskThresh_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to slider_maskThresh (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: slider controls usually have a light gray background.
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
+return
+
+function trials2exclude_Callback(hObject, eventdata, handles)
+return
+
+% --- Executes during object creation, after setting all properties.
+function trials2exclude_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+return
+
+
+% --- Executes on button press in btn_activitymonitor.
+function btn_activitymonitor_Callback(hObject, eventdata, handles)
+
+% Get data from GUI, if already set
+hGUI = findobj('Tag', 'ISIanalysisGUI_fig');
+tUserData = get(hGUI, 'UserData');
+ISIdata = [];
+if ~isempty(tUserData)
+    if isfield(tUserData, 'frameStack')
+        ISIdata = tUserData;
+    end
+end
+if isempty(ISIdata), warndlg('You must first load a .dat file', 'ISI Analysis'); return, end
+
+% produce an average of all frames in a single movie
+% use this to look for motion artefacts within single trials
+nTrials = size(ISIdata.frameStack, 1);
+
+hFig = figure;
+colormap gray
+
+nSigma = str2double(get(handles.smooth_sigma, 'string'));
+if ~isnan(nSigma)
+    mWin = fspecial('gaussian', nSigma*3, nSigma);
+else
+    mWin = NaN;
+end
+
+nrow = floor(sqrt(nTrials));
+ncol = round(nTrials / nrow);
+
+t = 1;
+for j = 1:nrow
+    for i = 1:ncol
+        if t > nTrials, break, end
+        cFrames = ISIdata.frameStack(t, :);
+        mFrames = reshape(cell2mat(cFrames), [512 512 size(cFrames, 2)]);
+        mDiffFrames = diff(mFrames, 1, 3);
+        mImg = mean(mDiffFrames, 3)';
+        
+        mCtrlFrame1 = mean(mFrames(:,:,1:(size(mFrames,3)/2)), 3);
+        mCtrlFrame2 = mean(mFrames(:,:,(size(mFrames,3)/2):end), 3);
+        mImg = (mCtrlFrame1 - mCtrlFrame2)';
+        
+        axes('position', [(i*(1/ncol))-(1/ncol) 1-(j*(1/nrow))  1/ncol 1/nrow]) % modified Per Jan 10th 2012
+        
+        % Smooth frame
+        if ~isnan(mWin)
+            mImg = single(filter2(mWin, mImg, 'same'));
+        end
+        
+        if ~ishandle(hFig), return, end
+        figure(hFig)
+        imagesc(mImg)
+        %set(gca,'clim',[-10 10])
+        
+        axis image off
+        hTxt = text(15, 30, num2str(t), ...
+            'color', 'w', 'backgroundcolor', 'k'); % modified Per Jan 10th 2012
+        t = t + 1;
+        drawnow
+    end
+end
+
+return
+
+% --- Save state of GUI
+function SaveGUIState(handles)
+vChild = findobj(handles.ISIanalysisGUI_fig);
+tState = struct([]);
+for c = 1:length(vChild)
+    sTag = get(vChild(c), 'tag');
+    if isempty(sTag), continue, end
+    if isprop(vChild(c), 'value')
+        tState(1).(sTag).value = get(vChild(c), 'value');
+    end
+    if isprop(vChild(c), 'string')
+        tState(1).(sTag).string = get(vChild(c), 'string');
+    end
+end
+sSaveAs = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
+save(sSaveAs, 'tState')
+return
+
+% --- Restore state of GUI form last saved settings
+function LoadGUIState(handles)
+vChild = findobj(handles.ISIanalysisGUI_fig);
+sLoadFile = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
+if ~exist(sLoadFile, 'file')
+    return
+end
+load(sLoadFile)
+csFieldnames = fieldnames(tState);
+for t = 1:length(csFieldnames)
+    if isfield(handles, csFieldnames{t})
+        if ishandle(handles.(csFieldnames{t}))
+            if isfield(tState.(csFieldnames{t}), 'value')
+                if ~isempty(tState.(csFieldnames{t}).value)
+                    set(handles.(csFieldnames{t}), 'value', tState.(csFieldnames{t}).value)
+                end
+            end
+            if isfield(tState.(csFieldnames{t}), 'string')
+                if ~isempty(tState.(csFieldnames{t}).string)
+                    set(handles.(csFieldnames{t}), 'string', tState.(csFieldnames{t}).string)
+                end
+            end
+        end
+    end
+end
+guidata(handles.ISIanalysisGUI_fig, handles);
+return

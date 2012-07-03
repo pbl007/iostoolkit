@@ -25,11 +25,12 @@ if isempty(ISIdata.frameStack)
     error('ISIdata.frameStack is empty or in an old format. Check your input file.');
 end
 
-% average trials
+% decide which trials to average
 trials2use = prmts.Trials2Use;
 if isempty(trials2use);
     trials2use = 1:ISIdata.ntrials;
 end
+trials2use = setdiff(trials2use, prmts.Trials2Exclude);
 useNtrials = length(trials2use);
 
 %initialize sum arrays
@@ -113,7 +114,7 @@ close(hWait)
 
 % Assign variables to output structure
 ISIdata.normFrame = normalizingFrame;
-ISIdata.deltaSignal = deltaSignalMedianCorrected;
+ISIdata.deltaSignal = deltaSignal;%deltaSignalMedianCorrected;
 ISIdata.climAll = [minpm maxpm]; % use values from median corrected r
 
 % Clear some variables to conserve memory
