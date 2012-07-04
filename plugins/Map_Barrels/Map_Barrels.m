@@ -28,7 +28,7 @@ function ISI_MapBarrels(varargin)
 nThresh = 0.00005;
 
 nRows = 2;
-nCols = 3
+nCols = 3;
 
 % Get path from GUI
 sPath = get(findobj(findobj('tag', 'ISIanalysisGUI_fig'), 'tag', 'path'), 'string');
@@ -70,6 +70,7 @@ if exist(fullfile(sPath, 'IOSPeaks.mat'), 'file')
     sList = tIOSPeaks(1).sList;
     cMaskMapT = tIOSPeaks(1).cMaskMapT;
     cMaskMap = tIOSPeaks(1).cMaskMap;
+    cMap = tIOSPeaks(1).cMap;
     
 else
     % If IOSPeaks.mat does not exist, we will generate it by iterating
@@ -114,6 +115,18 @@ else
     cd(sPwd)
 end
 
+% Generate a structure with all individual maps
+%   .id
+%   .raw_map
+%   .thresholded_map
+tMaps = struct('id', [], 'raw_map', [], 'thresholded_map', [], 'thresh', []);
+for i = 1:size(cMaskMapT, 2)
+    tMaps(i).id = sList(i).name(1:2);
+    tMaps(i).raw_map = cMap{i};
+    tMaps(i).thresholded_map = cMaskMapT{i};
+    tMaps(i).thresh = nThresh;
+end
+
 % Generate the max projection all-barrels map
 mMaskMapAll = zeros(size(cMaskMapT{1}));
 mIdentityMap = zeros(size(cMaskMapT{1}));
@@ -155,6 +168,23 @@ for i = 1:length(cMaskMapT)
     cTxt{end+1} = sList(i).name(1:2);
 
 end
+
+% Add combined maps to tMaps
+tMaps(end+1).id = 'All_CombinedMap';
+tMaps(end).raw_map = [];
+tMaps(end).thresholded_map = mMaskMapAll;
+tMaps(end).thresh = NaN;
+tMaps(end+1).id = 'All_IdentityMap';
+tMaps(end).raw_map = [];
+tMaps(end).thresholded_map = mIdentityMap;
+tMaps(end).thresh = NaN;
+
+% Save tMaps and then dump it
+sPwd = pwd;
+cd(sPath)
+save tMaps.mat tMaps
+cd(sPwd)
+clear tMaps
 
 mMaskMapAll(mMaskMapAll(:) == 0) = -.5;
 mMaskMapAll(mMaskMapAll(:) == NaN) = -.5;
