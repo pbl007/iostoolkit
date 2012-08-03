@@ -26,7 +26,7 @@ function varargout = ISI_analysisGUI(varargin)
 % 2011.10.31    mjp     initial version
 
 
-% Last Modified by GUIDE v2.5 04-May-2012 14:23:06
+% Last Modified by GUIDE v2.5 22-May-2012 17:24:17
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -177,7 +177,10 @@ hGUI = findobj('Tag', 'ISIanalysisGUI_fig');
 set(hGUI, 'UserData', [])
 
 % Load last saved GUI state for selected file
-LoadGUIState(handles)
+%LoadGUIState(handles)
+
+% Since a file was selected manually, uncheck the 'Process all files' checkbox
+set(handles.process_all_files, 'value', 0)
 return
 
 
@@ -355,8 +358,10 @@ function btn_run_Callback(hObject, eventdata, handles) %#ok
 if get(handles.process_all_files, 'value')
     % Get list of all .dat files in directory
     sFileList = dir(fullfile(handles.pathstr,'*.dat'));
+    bForceAllOption = 1;
 else
     sFileList = get(handles.data_filename, 'string');
+    bForceAllOption = 0;
 end
 
 if isempty(sFileList)
@@ -371,7 +376,8 @@ else
 end
 
 for nFi = 1:nLoop
-    if get(handles.process_all_files, 'value')
+    set(handles.process_all_files, 'value', bForceAllOption);
+    if bForceAllOption
         % Set file name in GUI
         getdatafile_Callback(hObject, sFileList(nFi).name, handles)
         % Create waitbar
@@ -477,6 +483,10 @@ for nFi = 1:nLoop
     setParams.Rnolight=setParams.filesQueue;
     setParams.Rnolight.name=get(handles.nolight_filename,'string');
     setParams.Rnolight.Whisker='none';
+
+    % trial averaging options
+    setParams.filesQueue.useMedianCorrection = get(handles.chk_mediancorrection, 'value');
+    setParams.filesQueue.useMotionCorrection = get(handles.chk_motioncorrection, 'value');
     
     % Run analysis
     try
@@ -715,11 +725,11 @@ sPath = [sPath(1:vIndx(end)) 'plugins' filesep sPlugin{sPluginId} filesep];
 addpath(sPath)
 
 % Run plugin
-try
+%try
     eval(sprintf('%s(hObject, eventdata, handles);',sPlugin{sPluginId}))
-catch
-    errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{sPluginId}, lasterr))
-end
+%catch
+%    errordlg(sprintf('An error occurred when running the %s plugin:\n\n %s', sPlugin{sPluginId}, lasterr))
+%end
 %cd(sPwd)
 
 return
@@ -823,6 +833,7 @@ for j = 1:nrow
         cFrames = ISIdata.frameStack(t, :);
         mFrames = reshape(cell2mat(cFrames), [512 512 size(cFrames, 2)]);
         mDiffFrames = diff(mFrames, 1, 3);
+                
         mImg = mean(mDiffFrames, 3)';
         
         mCtrlFrame1 = mean(mFrames(:,:,1:(size(mFrames,3)/2)), 3);
@@ -854,15 +865,20 @@ return
 % --- Save state of GUI
 function SaveGUIState(handles)
 vChild = findobj(handles.ISIanalysisGUI_fig);
+cExceptions = {'ISIanalysisGUI_fig'}; % tags of handles that should not be saved
 tState = struct([]);
 for c = 1:length(vChild)
     sTag = get(vChild(c), 'tag');
+    if any(strcmp(sTag, cExceptions)), continue, end
     if isempty(sTag), continue, end
     if isprop(vChild(c), 'value')
         tState(1).(sTag).value = get(vChild(c), 'value');
     end
     if isprop(vChild(c), 'string')
         tState(1).(sTag).string = get(vChild(c), 'string');
+    end
+    if isprop(vChild(c), 'userdata')
+        tState(1).(sTag).userdata = get(vChild(c), 'userdata');
     end
 end
 sSaveAs = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
@@ -876,7 +892,12 @@ sLoadFile = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')
 if ~exist(sLoadFile, 'file')
     return
 end
-load(sLoadFile)
+try % may fail is file is corrupt, as has happened...
+    load(sLoadFile)
+catch
+    return
+end
+if ~exist('tState', 'var'), return, end
 csFieldnames = fieldnames(tState);
 for t = 1:length(csFieldnames)
     if isfield(handles, csFieldnames{t})
@@ -891,8 +912,31 @@ for t = 1:length(csFieldnames)
                     set(handles.(csFieldnames{t}), 'string', tState.(csFieldnames{t}).string)
                 end
             end
+            if isfield(tState.(csFieldnames{t}), 'userdata')
+                if ~isempty(tState.(csFieldnames{t}).userdata)
+                    set(handles.(csFieldnames{t}), 'userdata', tState.(csFieldnames{t}).userdata)
+                end
+            end
         end
     end
 end
 guidata(handles.ISIanalysisGUI_fig, handles);
 return
+
+
+% --- Executes on button press in chk_mediancorrection.
+function chk_mediancorrection_Callback(hObject, eventdata, handles)
+% hObject    handle to chk_mediancorrection (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chk_mediancorrection
+
+
+% --- Executes on button press in chk_motioncorrection.
+function chk_motioncorrection_Callback(hObject, eventdata, handles)
+% hObject    handle to chk_motioncorrection (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chk_motioncorrection
