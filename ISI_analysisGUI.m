@@ -22,8 +22,9 @@ function varargout = ISI_analysisGUI(varargin)
 %      instance to run (singleton)".
 %
 
-%VERSIONS:
-% 2011.10.31    mjp     initial version
+% VERSIONS:
+% 2011.10.31    mjp               initial version
+% 2012.01.01    Per M Knutsen     modified GUI and backend code. Source hosted on GitHub
 
 
 % Last Modified by GUIDE v2.5 22-May-2012 17:24:17

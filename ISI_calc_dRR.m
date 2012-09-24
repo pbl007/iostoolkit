@@ -25,11 +25,12 @@ if isempty(ISIdata.frameStack)
     error('ISIdata.frameStack is empty or in an old format. Check your input file.');
 end
 
-% decide which trials to average
+% Decide which trials to average
 trials2use = prmts.Trials2Use;
-if isempty(trials2use);
+if isempty(trials2use)
     trials2use = 1:ISIdata.ntrials;
 end
+trials2use(trials2use > ISIdata.ntrials) = [];
 trials2use = setdiff(trials2use, prmts.Trials2Exclude);
 useNtrials = length(trials2use);
 

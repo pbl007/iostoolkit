@@ -91,7 +91,11 @@ for k = 1:ntrials
     end
     trial = fread(fid,1,'uint32');          % trial #, starting with 0
     stimnum = fread(fid,1,'int32');
-    trial_times = fread(fid,24,'signed char');   % On Windows, specifying 'char' works, but not on Linux
+    if isunix
+        trial_times = fread(fid,24,'signed char');   % On Windows, specifying 'char' works, but not on Linux
+    else
+        trial_times = fread(fid,24,'char');   % On Windows, specifying 'char' works
+    end
     fseek(fid, 25, 0);
     fseek(fid, -8, 0); % back up by 4 int16 because not writing array size, like earlier version.
 

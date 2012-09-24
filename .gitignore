@@ -6,3 +6,4 @@
 plugins/SVD_analysis/iostoolkit_svd_config.mat
 
 plugins/SVD_analysis/tmp.mat
+/*.m~
