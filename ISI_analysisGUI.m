@@ -25,9 +25,10 @@ function varargout = ISI_analysisGUI(varargin)
 % VERSIONS:
 % 2011.10.31    mjp               initial version
 % 2012.01.01    Per M Knutsen     modified GUI and backend code. Source hosted on GitHub
+% 2015.11.04    Pablo Blinder     modified GUI and backend code to support data analysis of OpticalImaging data (in .mat
+% format)
 
-
-% Last Modified by GUIDE v2.5 22-May-2012 17:24:17
+% Last Modified by GUIDE v2.5 04-Nov-2015 23:23:57
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -71,7 +72,8 @@ guidata(hObject, handles);
 % UIWAIT makes ISI_analysisGUI wait for user response (see UIRESUME)
 % uiwait(handles.ISIanalysisGUI_fig);
 
-% Add plugin folder to path
+% Add iostoolkit and plugin folder to path
+addpath(fileparts(mfilename('fullpath')));
 addpath([fileparts(mfilename('fullpath')) filesep 'plugins']);
 
 return
@@ -127,7 +129,10 @@ if ~exist(fullfile(handles.pathstr,datafile),'file') %file doesnt exist
     warndlg(sprintf('The file: \n%s\ndoes not exist.',datafile));
     set(handles.data_filename,'string','');
 else
-    name=regexp(handles.params.data_filename,'(.+)_\w{6}.dat','tokens');
+    %file names are expected to be whiskerIdentifierString_yyyymmdd.mat or .dat (also 6 digit dates are OK). 
+    %bottom line, whatever is before the last occurance of '_' is taken as the whisker name
+    %DO NOT USE more than one _ in the file name
+    name=regexp(handles.params.data_filename,['(.+)_\w{6,8}.' handles.fileType],'tokens');%support .mat 
     set(handles.whiskername,'string',name{1});
 end
 guidata(hObject, handles);
@@ -142,18 +147,26 @@ end
 % --- Executes on button press in getdatafile.
 function getdatafile_Callback(hObject, eventdata, handles) %#ok
 
-if isempty(eventdata)
+if strcmp(get(eventdata.Source,'Tag'),'getdatafile')
     curdir = pwd;
     cd(handles.pathstr); %load to path directory
     oldfile=get(handles.data_filename,'string');
-    [datafile,path2file]=uigetfile('*.dat');
+    [datafile,path2file,fileType]=uigetfile({'*.mat';'*.dat'},'Select data file');
     
     if datafile==0, datafile=oldfile; end %cancelled out
-    cd(curdir);
+    cd(path2file);
     set(handles.data_filename,'string',datafile);
     %update also path to selected file
     set(handles.path,'string',path2file);
     handles.pathstr=path2file;
+    switch fileType
+        case 1
+           handles.fileType = 'mat';
+        case 2
+           handles.fileType = 'dat';
+    end
+    
+    
     
 else
     % use passed file name
@@ -161,7 +174,7 @@ else
     set(handles.data_filename,'string',datafile);
 end
 
-name = regexp(datafile,'(.+)_\w{6}.dat','tokens');
+name = regexp(datafile,['(.+)_\w{6}.' handles.fileType],'tokens');
 
 if ~isempty(name)
     set(handles.whiskername,'string',name{1});
@@ -237,7 +250,7 @@ end
 
 % --- Executes on button press in getnolight.
 function getnolight_Callback(hObject, eventdata, handles) %#ok
-nolightfile=uigetfile('*.dat');
+nolightfile=uigetfile('*.*','Select no light image');%this could be just a plain image file - will need to support this as well
 set(handles.nolight_filename,'string',nolightfile);
 guidata(hObject, handles);
 
@@ -357,8 +370,8 @@ function btn_run_Callback(hObject, eventdata, handles) %#ok
 
 % Iterate over files
 if get(handles.process_all_files, 'value')
-    % Get list of all .dat files in directory
-    sFileList = dir(fullfile(handles.pathstr,'*.dat'));
+    % Get list of all .dat/.mat files in directory
+    sFileList = dir(fullfile(handles.pathstr,handles.fileType)); %support .mat file (we export to mat from the acquisition hardware)
     bForceAllOption = 1;
 else
     sFileList = get(handles.data_filename, 'string');
@@ -383,7 +396,7 @@ for nFi = 1:nLoop
         getdatafile_Callback(hObject, sFileList(nFi).name, handles)
         % Create waitbar
         if ~exist('hWait')
-            hWait = waitbar(nFi/length(sFileList), 'Processing all .dat files. Please wait...');
+            hWait = waitbar(nFi/length(sFileList), 'Processing all files. Please wait...');
         end
         if ishandle(hWait)
             waitbar(nFi/length(sFileList), hWait);
@@ -392,7 +405,7 @@ for nFi = 1:nLoop
         end
     end
     
-    % Save all GUI settings and associate _settings.mat file current .dat file
+    % Save all GUI settings and associate _settings.mat file current .dat/.mat file
     SaveGUIState(handles)
     
     %first set the general parameters.
@@ -410,6 +423,7 @@ for nFi = 1:nLoop
     setParams.filesQueue.path2dir = handles.pathstr;
     setParams.filesQueue.name = get(handles.data_filename,'string');
     setParams.filesQueue.refImage=get(handles.vessel_filename,'string');
+    setParams.filesQueue.fileType = handles.fileType;
     setParams.filesQueue.precision='int16';
     if ~isempty( [get(handles.trials2use_Start, 'string')] ) && ~isempty( [get(handles.trials2use_End, 'string')] )
         setParams.filesQueue.Trials2Use = str2double(get(handles.trials2use_Start, 'string')):str2double(get(handles.trials2use_End, 'string'));
@@ -421,7 +435,7 @@ for nFi = 1:nLoop
         setParams.filesQueue.Trials2Exclude = str2num(get(handles.trials2exclude, 'string'));
     end
     setParams.filesQueue.Whisker=get(handles.whiskername,'string');
-    setParams.filesQueue.minFaces=50; %ignores contours that would be too small
+    setParams.filesQueue.minFaces=50; %ignores contours that would be too small - HARDCODED!!!!
     setParams.filesQueue.maxFaces=1000; %ignores contours that are too big
     
     contour_min=str2double(get(handles.contour_min,'string'));
@@ -511,6 +525,21 @@ return
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% --- Executes on button press in btn_select_folder.
+function btn_select_folder_Callback(hObject, eventdata, handles)
+% hObject    handle to btn_select_folder (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+%populate handles.pathstr 
+path2str = uigetdir(handles.pathstr,'Select directory containing data');
+if isempty(path2str) | path2str == 0;
+    warndlg('No folder has been selected.', 'ISI')
+    return;
+end
+handles.pathstr = path2str;
+cd(path2str);
 
 % --- Executes on button press in btn_explore.
 function btn_explore_Callback(hObject, eventdata, handles) %#ok
@@ -808,7 +837,7 @@ if ~isempty(tUserData)
         ISIdata = tUserData;
     end
 end
-if isempty(ISIdata), warndlg('You must first load a .dat file', 'ISI Analysis'); return, end
+if isempty(ISIdata), warndlg('You must first load a .dat or .mat file', 'ISI Analysis'); return, end
 
 % produce an average of all frames in a single movie
 % use this to look for motion artefacts within single trials
@@ -882,14 +911,14 @@ for c = 1:length(vChild)
         tState(1).(sTag).userdata = get(vChild(c), 'userdata');
     end
 end
-sSaveAs = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
+sSaveAs = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), ['.' handles.fileType], '_UIValues.mat');
 save(sSaveAs, 'tState')
 return
 
 % --- Restore state of GUI form last saved settings
 function LoadGUIState(handles)
 vChild = findobj(handles.ISIanalysisGUI_fig);
-sLoadFile = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), '.dat', '_UIValues.mat');
+sLoadFile = strrep(fullfile(handles.pathstr, get(handles.data_filename,'string')), ['.' handles.fileType], '_UIValues.mat');
 if ~exist(sLoadFile, 'file')
     return
 end
@@ -941,3 +970,17 @@ function chk_motioncorrection_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of chk_motioncorrection
+
+
+% --- Executes when selected object is changed in uibuttongroup1.
+function uibuttongroup1_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in uibuttongroup1 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+%executes when user changes file type radio button
+try
+handles.fileType = get(get(gcbo,'SelectedObject'),'String');
+catch
+    errordlg('GUI-error: Failed to obtain file type')
+end

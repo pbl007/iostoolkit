@@ -9,127 +9,138 @@ function [ISIdata] = ISI_read(prmts)
 
 % Changelog:
 %  03/01/11 Modified from Pablo's code, engineered to match the output of
-%           ISI_recordframes_piezo.vi. All data formats should be in 
+%           ISI_recordframes_piezo.vi. All data formats should be in
 %           little-endian. Linux may not read 8 byte spacers correctly.
 %           Also converts int16 data to single, instead of double. MP
 %  02/02/12 Modified to allow pixel binning during file read. PMK
 %  02/10/12 Fixed reading files on Linux. PMK
 %  03/26/12 Fixed reading files with non-integer trial durations. PMK
+%  11/04/15 Enable reading data converted to .mat from OpticalImaging setup (Grinvald). PB
 
 % Open file
 ISIdata = [];
 path2file = fullfile(prmts.path2dir,prmts.name);
-fid = fopen(path2file);
-if fid==-1
-    error(['Failed to open ' path2file]);
-    return;
-end
 
-% Get file size
-fseek(fid, 0, 'eof');
-nFileSize = ftell(fid);
-
-% Return file position indicator to start of file
-fseek(fid, 0, 'bof');
-
-% Get file headers
-thestarttime = fread(fid,4,'int32');
-size_x = fread(fid, 1, 'int16');
-size_y = fread(fid, 1, 'int16');
-frame_rate = fread(fid,1,'int16');
-bin_duration = fread(fid,1,'int16');
-
-% Read trial duration
-nsec = fread(fid,1,'uint16');
-bit_depth1 = fread(fid,1,'int16');
-fpos = ftell(fid);
-ntrials = fread(fid,1,'int32');
-%nFramesPerTrial = nsec*(frame_rate/bin_duration);
-bin_duration_sec = bin_duration / frame_rate;
-if ~isempty(prmts.Trials2Use)
-    trial_range = sprintf('[%d %d]', prmts.Trials2Use(1), prmts.Trials2Use(end));
-else
-    trial_range = sprintf('[0 %d]', ntrials);
-end
-
-% Estimate frames/trial from file filesize and known header sizes
-nFrameSize = size_x * size_y * 2; % bytes
-nHeaderSize = 20 + (ntrials * 47); % each trial has headers of 47 bytes
-nFramesPerTrial = int32((nFileSize-nHeaderSize) / nFrameSize / ntrials);
-
-% Print file into to prompt
-fprintf('\nFilename:\t\t%s\nTrials:\t\t\t%d\nFrame Rate:\t\t%d frames/s\nBin Duration:\t%d frames / %.2f s\nFrame Size:\t\t%dx%d px\nFrames/trial:\t%d\nBit Depth:\t\t%d\nTrial Duration:\t%d s\nTrials Used:\t%s\n',...
-    prmts.name, ntrials, frame_rate, bin_duration, bin_duration_sec, size_x,size_y,nFramesPerTrial,bit_depth1,nsec,trial_range);
-
-% Check that frames/trial estimate is consistent with header information
-% Note: These numbers WILL deviate if the trial duration is non-integer.
-%       In these cases, we will issue a warning to prompt.
-if nFramesPerTrial ~= [nsec*(frame_rate/bin_duration)]
-    disp(sprintf('Warning: Frames/trial estimated from filesize (%.0f) is different from that retrieved from file headers (%d)', nFramesPerTrial, nsec*(frame_rate/bin_duration)))
-end
-
-if ~prmts.DoLoad
-    return
-end
-
-fseek(fid, 25-4, 0);
-
-hWait = waitbar(0,'Loading frames...');
-
-h2fig = findobj('Tag', 'ISIanalysisGUI_fig');%ensure function can stil be run w/o GUI
-if ~isempty(h2fig);centerfig(hWait, h2fig);end
-drawnow;
-
-ISIdata.frameStack = cell(ntrials,(nsec*(frame_rate/bin_duration)));
-size(ISIdata.frameStack);
-for k = 1:ntrials
-    % Read trial header
-    intcheck = fread(fid,1,'int32');        % should be -9999
-    if intcheck ~= -9999
-        warning('intcheck does not return -9999 in ISI_read.m. Entering debugging mode.')
-        keyboard
-    end
-    trial = fread(fid,1,'uint32');          % trial #, starting with 0
-    stimnum = fread(fid,1,'int32');
-    if isunix
-        trial_times = fread(fid,24,'signed char');   % On Windows, specifying 'char' works, but not on Linux
-    else
-        trial_times = fread(fid,24,'char');   % On Windows, specifying 'char' works
-    end
-    fseek(fid, 25, 0);
-    fseek(fid, -8, 0); % back up by 4 int16 because not writing array size, like earlier version.
-
-    %for m = 1:((1/bin_duration_sec)*nsec)
-    for m = 1:nFramesPerTrial
-        mFrame = single([]);
-        mFrame = single(fread(fid, [size_x size_y], prmts.precision));
-
-        % Bin pixels
-        if isfield(prmts, 'imgBin')
-            if prod(prmts.imgBin) > 1
-                mFrame = downsamp2d(mFrame, prmts.imgBin);
+switch prmts.fileType
+    case 'dat'
+        
+        fid = fopen(path2file);
+        if fid==-1
+            error(['Failed to open ' path2file]);
+            return;
+        end
+        
+        % Get file size
+        fseek(fid, 0, 'eof');
+        nFileSize = ftell(fid);
+        
+        % Return file position indicator to start of file
+        fseek(fid, 0, 'bof');
+        
+        % Get file headers
+        thestarttime = fread(fid,4,'int32');
+        size_x = fread(fid, 1, 'int16');
+        size_y = fread(fid, 1, 'int16');
+        frame_rate = fread(fid,1,'int16');
+        bin_duration = fread(fid,1,'int16');
+        
+        % Read trial duration
+        nsec = fread(fid,1,'uint16');
+        bit_depth1 = fread(fid,1,'int16');
+        fpos = ftell(fid);
+        ntrials = fread(fid,1,'int32');
+        %nFramesPerTrial = nsec*(frame_rate/bin_duration);
+        bin_duration_sec = bin_duration / frame_rate;
+        if ~isempty(prmts.Trials2Use)
+            trial_range = sprintf('[%d %d]', prmts.Trials2Use(1), prmts.Trials2Use(end));
+        else
+            trial_range = sprintf('[0 %d]', ntrials);
+        end
+        
+        % Estimate frames/trial from file filesize and known header sizes
+        nFrameSize = size_x * size_y * 2; % bytes
+        nHeaderSize = 20 + (ntrials * 47); % each trial has headers of 47 bytes
+        nFramesPerTrial = int32((nFileSize-nHeaderSize) / nFrameSize / ntrials);
+        
+        % Print file into to prompt
+        fprintf('\nFilename:\t\t%s\nTrials:\t\t\t%d\nFrame Rate:\t\t%d frames/s\nBin Duration:\t%d frames / %.2f s\nFrame Size:\t\t%dx%d px\nFrames/trial:\t%d\nBit Depth:\t\t%d\nTrial Duration:\t%d s\nTrials Used:\t%s\n',...
+            prmts.name, ntrials, frame_rate, bin_duration, bin_duration_sec, size_x,size_y,nFramesPerTrial,bit_depth1,nsec,trial_range);
+        
+        % Check that frames/trial estimate is consistent with header information
+        % Note: These numbers WILL deviate if the trial duration is non-integer.
+        %       In these cases, we will issue a warning to prompt.
+        if nFramesPerTrial ~= [nsec*(frame_rate/bin_duration)]
+            disp(sprintf('Warning: Frames/trial estimated from filesize (%.0f) is different from that retrieved from file headers (%d)', nFramesPerTrial, nsec*(frame_rate/bin_duration)))
+        end
+        
+        if ~prmts.DoLoad
+            return
+        end
+        
+        fseek(fid, 25-4, 0);
+        
+        hWait = waitbar(0,'Loading frames...');
+        
+        h2fig = findobj('Tag', 'ISIanalysisGUI_fig');%ensure function can stil be run w/o GUI
+        if ~isempty(h2fig);centerfig(hWait, h2fig);end
+        drawnow;
+        
+        ISIdata.frameStack = cell(ntrials,(nsec*(frame_rate/bin_duration)));
+        size(ISIdata.frameStack);
+        for k = 1:ntrials
+            % Read trial header
+            intcheck = fread(fid,1,'int32');        % should be -9999
+            if intcheck ~= -9999
+                warning('intcheck does not return -9999 in ISI_read.m. Entering debugging mode.')
+                keyboard
+            end
+            trial = fread(fid,1,'uint32');          % trial #, starting with 0
+            stimnum = fread(fid,1,'int32');
+            if isunix
+                trial_times = fread(fid,24,'signed char');   % On Windows, specifying 'char' works, but not on Linux
+            else
+                trial_times = fread(fid,24,'char');   % On Windows, specifying 'char' works
+            end
+            fseek(fid, 25, 0);
+            fseek(fid, -8, 0); % back up by 4 int16 because not writing array size, like earlier version.
+            
+            %for m = 1:((1/bin_duration_sec)*nsec)
+            for m = 1:nFramesPerTrial
+                mFrame = single([]);
+                mFrame = single(fread(fid, [size_x size_y], prmts.precision));
+                
+                % Bin pixels
+                if isfield(prmts, 'imgBin')
+                    if prod(prmts.imgBin) > 1
+                        mFrame = downsamp2d(mFrame, prmts.imgBin);
+                    end
+                end
+                
+                % Assign
+                ISIdata.frameStack{k,m} = single([]);
+                ISIdata.frameStack{k,m} = mFrame;
+            end
+            if ishandle(hWait)
+                waitbar(k/ntrials, hWait)
+            else
+                error('File read aborted.');
             end
         end
         
-        % Assign 
-        ISIdata.frameStack{k,m} = single([]);
-        ISIdata.frameStack{k,m} = mFrame;
-    end
-    if ishandle(hWait)
-        waitbar(k/ntrials, hWait)
-    else
-        error('File read aborted.');
-    end
+        % Check that we have read the correct number of frames by verifying that
+        % we are at the end-of-file.
+        if nFileSize ~= ftell(fid)
+            disp('Warning: Not all file data was read!')
+        end
+        
+        close(hWait)
+        fclose(fid);
+        
+    case 'mat'
+        load(path2file);
+        %need to parse here mat data structure to ISIdata.
+    otherwise
 end
-
-% Check that we have read the correct number of frames by verifying that
-% we are at the end-of-file.
-if nFileSize ~= ftell(fid)
-    disp('Warning: Not all file data was read!')
-end
-
-close(hWait)
-fclose(fid);
 
 % Store parameters relevant for further analysis
 ISIdata.ntrials = ntrials;

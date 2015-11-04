@@ -14,7 +14,7 @@ function [prmts, ISIdata] = ISI_analysis(prmts)
 % 2012.04.03 Added manual mask. PMK
 %
 
-sColMap = 'gray';
+sColMap = 'gray'; %HARDCODED
 
 % Set the no light file data, subtracting the DC offset
 if prmts.useNoLight
