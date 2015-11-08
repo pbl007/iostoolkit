@@ -137,16 +137,82 @@ switch prmts.fileType
         fclose(fid);
         
     case 'mat'
-        load(path2file);
         %need to parse here mat data structure to ISIdata.
+        %LongDaq (and hopefully any other data type from Optical Imaging system) comes in the following format:
+        %Each "block" is saved to a separated file the structure of the file name is as follows:
+        % basename_EyyyBxxx.BLK.mat where yyy is the Experiment id and xxx is the Block id.
+        % each block contains the following data:
+        %   ConditionCount
+        %   FrameCount
+        %   FrameHeight
+        %   FrameWidth
+        %   iF ???
+        %   ScaleFactor ???
+        %   TrialCount
+        %   VidsPerDataFrame
+        %
+        % There are two ways data can be stored
+        % "FrameArray" each frame is stored in a separated variable named (if converted into the FrameArray):
+        %   cXfyy where X is the condition id and yy is the frame count.
+        %
+        % "ConditionArray" where all frame of each condition are stored in a three dimensional array named:
+        %   cX where X is the condition. Here frame are concatenated across the third dimension (height,width,frame)
+        %
+        % Note - a "condition" refers to the set of frames with a specific stimulus was used. There's no way to recover
+        % where along the conditions the stimulus was presented so we have to ask this information from the user
+        
+        
+        %gather some info about file and attemp to determine type
+        eval(sprintf('load %s FrameWidth FrameHeight FrameCount ConditionCount ScaleFactor VidsPerDataFrame TrialCount',path2file))
+        
+        %ISIdata.frameStack{k,m} ; k trials, m frames/trial let's figure out this values
+        % in LabView, we refer to trials in Optical Imaging this are the  "blocks" (separated files)
+        %
+        
+        size_y = FrameHeight;
+        size_x = FrameWidth;
+        
+        nFramesPerTrial = FrameCount;
+        
+        %populate nsec: compute the lenght of each block of data
+        totalNumberOfCameraFrames = FrameCount * VidsPerDataFrame;
+        nsec = totalNumberOfCameraFrames/prmts.camera_fps;
+        frame_rate = prmts.camera_fps;
+        bin_duration = VidsPerDataFrame ;
+        ntrials = numel(prmts.Trials2Use);
+        %dynamically build file name
+        E_number = regexp(path2file,'E(?<ex_id>\d+)B\d+.','tokens');%extract experiment number - this is part of the Optical Imagign naming system
+        E_number = cell2mat(E_number{1});
+        blkFileList=cell(ntrials,1);
+        for iBLOCK = 1 : ntrials
+            blkFileList{iBLOCK} = regexprep(path2file,'E\d+Bd+',sprintf('E%sB%d',E_number,prmts.Trials2Use(iBLOCK)));
+        end%creating list of block file names to load
+        
+        %determine if data is of type "FrameArray" or "ConditionArray"
+        %assume FrameArray, if failed then load as ConditionArray
+        
+        eval(sprintf('load %s c0f0',path2file))
+        if exist('c0f0','var')
+            %bingo this is a FrameArray
+            for k = 1:ntrials
+                for m = 0 : FrameCount-1 % frames start with 0
+                    eval(sprintf('load %s c0f%d;',blkFileList{k},m))
+                    eval(sprintf('ISIdata.frameStack{k,m+1} = c0f%d'';',m)); %looks like data needs to be transposed with respect to reference image.
+                    eval(sprintf('clear c0f%d;',m));
+                end
+            end
+        else
+            
+        end
+        
     otherwise
-end
+end%loading dat/mat files
 
 % Store parameters relevant for further analysis
 ISIdata.ntrials = ntrials;
 ISIdata.nsec = nsec;
 ISIdata.frame_rate = frame_rate;
-ISIdata.bin_duration = bin_duration;
+ISIdata.bin_duration = bin_duration; % apparently in frames
 ISIdata.nFramesPerTrial = nFramesPerTrial;
 
 % Frame size
@@ -161,4 +227,5 @@ ISIdata.nPreStimFrames = (frame_rate./bin_duration) * prmts.preStimDurSec;
 ISIdata.nStimFrames = (frame_rate./bin_duration) * prmts.stimDurSec;
 ISIdata.nPostStimFrames = nFramesPerTrial - (ISIdata.nPreStimFrames + ISIdata.nStimFrames);
 
+fprintf('\nLoaded %d trials/blocks with %d frames each',k,nFramesPerTrial)
 return

@@ -28,7 +28,7 @@ function varargout = ISI_analysisGUI(varargin)
 % 2015.11.04    Pablo Blinder     modified GUI and backend code to support data analysis of OpticalImaging data (in .mat
 % format)
 
-% Last Modified by GUIDE v2.5 04-Nov-2015 23:23:57
+% Last Modified by GUIDE v2.5 06-Nov-2015 00:18:26
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -162,6 +162,23 @@ if strcmp(get(eventdata.Source,'Tag'),'getdatafile')
     switch fileType
         case 1
            handles.fileType = 'mat';
+           %attempt to obtain first and last block ids
+           dirContent = dir(path2file);
+           minBlockID = inf;
+           maxBlockID = -inf;
+           for iF = 1 :  numel(dirContent);
+               res = regexp(dirContent(iF).name,'E\d+B(?<block_id>\d+)','tokens') ;
+               if ~isempty(res)
+                   thisBlockId = res{1}{1};
+                   if thisBlockId<minBlockID;minBlockID=thisBlockId;end
+                   if thisBlockId>maxBlockID;maxBlockID=thisBlockId;end
+               end
+           end
+           set(handles.trials2use_Start,'String',num2str(minBlockID));
+           set(handles.trials2use_End,'String',num2str(maxBlockID));
+           if minBlockID==0
+               set(handles.trials2exclude,'String',num2str(0)); %PB TO DO : we drop one trail as it starts at 0 and made changing the code quite messy downstream- PB
+           end
         case 2
            handles.fileType = 'dat';
     end
@@ -181,8 +198,8 @@ if ~isempty(name)
 else
     %     warning('ISI_analysisGUI:getdatafile','Couldn''t isolate whisker name, please enter it manually.');
     warndlg('Couldn''t isolate whisker name, please enter it manually.','ISI_analysisGUI:getdatafile');
-    
-    set(handles.whiskername,'string','');
+    res=inputdlg('Please enter whisker name');
+    set(handles.whiskername,'string',res{1});
 end
 
 guidata(hObject, handles);
@@ -343,8 +360,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 return
 
-% --- Executes on button press in chk_selectROI.
-function chk_selectROI_Callback(hObject, eventdata, handles) %#ok
+
 
 
 function stiminterval_hi_Callback(hObject, eventdata, handles) %#ok
@@ -367,6 +383,11 @@ function btn_run_Callback(hObject, eventdata, handles) %#ok
 %We need to stack the structs, because ISI_analysis expects a struct
 %containing an array of file parameter structs. We are only running one
 %file at a time, so we just have the filesQueue struct within setParams
+
+%for some obscure reason, there are multiple copies (hidden) of the main figure,
+%delete all but first before going into any analysis. - PB
+f = findobj('Tag', 'ISIanalysisGUI_fig');
+if numel(f)>1;delete(f(2:end));end
 
 % Iterate over files
 if get(handles.process_all_files, 'value')
@@ -435,8 +456,8 @@ for nFi = 1:nLoop
         setParams.filesQueue.Trials2Exclude = str2num(get(handles.trials2exclude, 'string'));
     end
     setParams.filesQueue.Whisker=get(handles.whiskername,'string');
-    setParams.filesQueue.minFaces=50; %ignores contours that would be too small - HARDCODED!!!!
-    setParams.filesQueue.maxFaces=1000; %ignores contours that are too big
+    setParams.filesQueue.minFaces=100; %ignores contours that would be too small - HARDCODED!!!!
+    setParams.filesQueue.maxFaces=3000; %ignores contours that are too big
     
     contour_min=str2double(get(handles.contour_min,'string'));
     contour_step=str2double(get(handles.contour_step,'string'));
@@ -502,6 +523,9 @@ for nFi = 1:nLoop
     % trial averaging options
     setParams.filesQueue.useMedianCorrection = get(handles.chk_mediancorrection, 'value');
     setParams.filesQueue.useMotionCorrection = get(handles.chk_motioncorrection, 'value');
+
+    % this parameter is required to parse Optical Image BLK data
+    setParams.filesQueue.camera_fps = str2num(get(handles.camera_fps,'String'));
     
     % Run analysis
     try
@@ -608,7 +632,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-
 function edit23_Callback(hObject, eventdata, handles)
 
 
@@ -670,7 +693,6 @@ function imgbin_x_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 
 
 function imgbin_y_Callback(hObject, eventdata, handles)
@@ -861,7 +883,7 @@ for j = 1:nrow
     for i = 1:ncol
         if t > nTrials, break, end
         cFrames = ISIdata.frameStack(t, :);
-        mFrames = reshape(cell2mat(cFrames), [512 512 size(cFrames, 2)]);
+        mFrames = reshape(cell2mat(cFrames), [ISIdata.frameSizeYX size(cFrames, 2)]);%had hardcoded vals - PB
         mDiffFrames = diff(mFrames, 1, 3);
                 
         mImg = mean(mDiffFrames, 3)';
@@ -984,3 +1006,30 @@ handles.fileType = get(get(gcbo,'SelectedObject'),'String');
 catch
     errordlg('GUI-error: Failed to obtain file type')
 end
+
+
+
+function camera_fps_Callback(hObject, eventdata, handles)
+% hObject    handle to camera_fps (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of camera_fps as text
+%        str2double(get(hObject,'String')) returns contents of camera_fps as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function camera_fps_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to camera_fps (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+function chk_selectROI_Callback(hObject, eventdata, handles)
+return

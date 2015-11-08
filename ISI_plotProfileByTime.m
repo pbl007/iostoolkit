@@ -45,7 +45,12 @@ for r = 1:length(tProfile)
     end
     
     % Colormap for lines
-    mCols = colormap(jet); 
+    if  verLessThan('8.4.0')
+        mCols = colormap(hot); 
+    else
+        mCols = colormap(parula);
+    end
+    
     n = size(ISIdata.deltaSignal, 3); % size of new color map
     m = size(mCols,1);
     t0 = linspace(0,1,m)';
@@ -99,7 +104,12 @@ for r = 1:length(tProfile)
     axis tight
     hLeg = legend({'Stim' 'Mean' 'Std'}, 'Location', 'Best');
     legend boxoff
-    title(sprintf('Intensity Profile - %s : %s', prmts.name, prmts.Whisker{1}), 'interpreter', 'none')
+    if ischar(prmts.Whisker)
+        whiskerName = prmts.Whisker;
+    else
+        whiskerName = prmts.Whisker{1};
+    end
+    title(sprintf('Intensity Profile - %s : %s', prmts.name, whiskerName), 'interpreter', 'none')
     hAx = colorbar;
     ylabel(hAx, 'Frame')
 

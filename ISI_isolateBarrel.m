@@ -26,13 +26,13 @@ filtframe=signalFrame.*ISIdata.vesselmask;
 croppix=0;
 if croppix>0
     dipFramesAvg=filtframe(croppix:(ISIdata.frameSizeYX(2)-croppix),croppix:(ISIdata.frameSizeYX(1)-croppix));
-else dipFramesAvg=filtframe; 
+else dipFramesAvg=filtframe;
 end
 
 hfig = figure('name',['BARREL FINDER- ' prmtsCurrent.name]);
 
 % F = fspecial('gaussian', 6, 2); %6x6 gaussian kernel, sigma=2
-F = fspecial('gaussian', 12, 4); %12x12 gaussian kernel, sigma=4
+F = fspecial('gaussian', 12, 4); %12x12 gaussian kernel, sigma=4 HARDCODED
 
 filtframeSmooth1 = filter2(F, dipFramesAvg,'valid');
 dipIm=filtframeSmooth1;
@@ -41,10 +41,10 @@ dipIm=filtframeSmooth1;
 
 ISIdata.signalFrameFilt=dipIm;
 
-himg=imagesc(dipIm);     
+himg=imagesc(dipIm);
 axis image; hold on; colormap hot; colorbar
 title(prmtsCurrent.Whisker,'interpreter','none');
-caxis([-6e-4 6e-4]);
+caxis([-8e-4 8e-4]);
 
 if saveFig
     savefilename=fullfile(prmtsCurrent.path2dir,prmtsCurrent.name);
@@ -76,71 +76,100 @@ contourLinesLeftPerLevel = zeros(nContourLevels,1);
 gotLowest = 0;
 for iLevel=1:nContourLevels
     [xcontour{1,iLevel},h]=contour(dipIm,[-1 -1]+contour_level(iLevel),contour_color{mod(iLevel,nContColor)+1}, 'LineWidth',2);
-
-    %%%%%delete small objects
-    hChildren = get(h,'children');
-
-    for iChild = 1 : numel(hChildren)
-        np = numel(get(hChildren(iChild),'Faces'));
-        if np < prmtsCurrent.minFaces || np > prmtsCurrent.maxFaces
-            delete(hChildren(iChild));
-        end
-    end
-
-    %Check how many contour points left for current level
-    hChildren = get(h,'children');
-    contourLinesLeftPerLevel(iLevel) = numel(hChildren);
-
-    %keep lowest for later use
-    if contourLinesLeftPerLevel(iLevel) > 0
-        if ~gotLowest 
-            XdataLowest = get(hChildren,'Xdata');
-            YdataLowest = get(hChildren,'Ydata');
-            if isnumeric(XdataLowest) %if only one contour, still display to give chance to skip
-                XdataLowest={XdataLowest};
-                YdataLowest={YdataLowest};
+    
+    
+    %graphics handles changed in R2014 - PB
+    if verLessThan('matlab', '8.4.0')
+        %%%%%delete small objects
+        hChildren = get(h,'children');
+        for iChild = 1 : numel(hChildren)
+            np = numel(get(hChildren(iChild),'Faces'));
+            if np < prmtsCurrent.minFaces || np > prmtsCurrent.maxFaces
+                delete(hChildren(iChild));
             end
-            if iscell(XdataLowest) %only one contour
-                %                 need to ask user to choose
-                %                 keyboard
-                %mjp 2011.07.29 added ability to select more than one contour
-                idx = ISI_selectContour(XdataLowest,YdataLowest,prmtsCurrent,dipIm,contour_level(iLevel)-1);
-                drawnow;
-                if idx > 0
-                    Xcontour = XdataLowest{idx(1)};
-                    Ycontour =YdataLowest{idx(1)};
-                    if numel(idx)>1
-                        for ix=2:length(idx)
-                            Xcontour=[Xcontour; NaN; XdataLowest{idx(ix)};];
-                            Ycontour=[Ycontour; NaN; YdataLowest{idx(ix)};];
+        end%children
+        
+        %Check how many contour points left for current level
+        hChildren = get(h,'children');
+        contourLinesLeftPerLevel(iLevel) = numel(hChildren);
+        %keep lowest for later use
+        if contourLinesLeftPerLevel(iLevel) > 0
+            if ~gotLowest
+                XdataLowest = get(hChildren,'Xdata');
+                YdataLowest = get(hChildren,'Ydata');
+                if isnumeric(XdataLowest) %if only one contour, still display to give chance to skip
+                    XdataLowest={XdataLowest};
+                    YdataLowest={YdataLowest};
+                end
+                if iscell(XdataLowest) %only one contour
+                    %                 need to ask user to choose
+                    %                 keyboard
+                    %mjp 2011.07.29 added ability to select more than one contour
+                    idx = ISI_selectContour(XdataLowest,YdataLowest,prmtsCurrent,dipIm,contour_level(iLevel)-1);
+                    drawnow;
+                    if idx > 0
+                        Xcontour = XdataLowest{idx(1)};
+                        Ycontour =YdataLowest{idx(1)};
+                        if numel(idx)>1
+                            for ix=2:length(idx)
+                                Xcontour=[Xcontour; NaN; XdataLowest{idx(ix)};];
+                                Ycontour=[Ycontour; NaN; YdataLowest{idx(ix)};];
+                            end
+                            Xcontour=[Xcontour; NaN];
+                            Ycontour=[Ycontour; NaN];
                         end
-                        Xcontour=[Xcontour; NaN];
-                        Ycontour=[Ycontour; NaN];
+                        gotLowest = 1;
+                        lowestLevel = iLevel;
                     end
+                else
                     gotLowest = 1;
                     lowestLevel = iLevel;
+                    Xcontour=XdataLowest;
+                    Ycontour=YdataLowest;
                 end
-            else
-                gotLowest = 1;
-                lowestLevel = iLevel;
-                Xcontour=XdataLowest;
-                Ycontour=YdataLowest;
+                
+            end%got lowest
+        end %seletion countours>0
+    else
+        %find all countours based on the Cmatrix output. Each time a new countour line is added,
+        
+        %the value appears in the first row, the value beneath (second row) correspond to the number of vertices
+        thisContour = xcontour{1,iLevel};
+        [~,xi] = find(thisContour == -1+contour_level(iLevel));
+        np = diff([xi ;size(thisContour,2)]);
+        valid = (np >= prmtsCurrent.minFaces & np <= prmtsCurrent.maxFaces);
+        %now reconstruct cmatrix
+        contourLinesLeftPerLevel(iLevel) = sum(valid);
+        %keep lowest
+        if contourLinesLeftPerLevel(iLevel) == 1 %just one contour
+            validIdx = find(valid)
+            if ~gotLowest
+                xi_start = xi(validIdx)+1;
+                xi_stop = xi(validIdx+1)-1;
+                Xcontour = thisContour(1,xi_start:xi_stop);
+                Ycontour = thisContour(2,xi_start:xi_stop);
+                delete(h)
+                plot(Xcontour,Ycontour,'-','linewidth',2,'color',contour_color{mod(iLevel,nContColor)+1})
+                gotLowest=1;
             end
-
+        elseif contourLinesLeftPerLevel(iLevel) > 1
+            %multiple contours for same level - not implemented yet
         end
-        %clabel(xcontour{1,iLevel},h)
-    end %extracting lowest xy data
+    end %solution for differnt versions
+    
+    
+    %clabel(xcontour{1,iLevel},h)
+end %extracting lowest xy data
 
 %     axis square
 %     axis on;grid on;
 %     %
 %     axis ij
 
-end
 close(hfig);
 
 hfig=figure('name',['BARREL FINDER- ' prmtsCurrent.name]);
-himg=imagesc(dipIm);     
+himg=imagesc(dipIm);
 if nContourLevels>1
     caxis(contour_level([1 end])-1)
 else
@@ -154,7 +183,7 @@ if isfield(prmtsCurrent,'refImage')
     if ~isempty(prmtsCurrent.refImage)
         figure('name',['BARREL LOCATOR REF- ' prmtsCurrent.name]  )
         imRef = imread(fullfile(prmtsCurrent.path2dir,prmtsCurrent.refImage));
-
+        
         %Compute size difference between filtered "dip" image and reference
         [deltaRC] = size(imRef) - size(dipIm);
         deltaR = fix(deltaRC(1)/2);

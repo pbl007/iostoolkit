@@ -83,7 +83,14 @@ for r = 1:length(tROI)
     axis tight
     hLeg = legend({'Stim' 'Mean' 'Std'}, 'Location', 'Best');
     legend boxoff
-    title(sprintf('ROI Signal - %s : %s', prmts.name, prmts.Whisker{1}), 'interpreter', 'none')
+    
+
+    if ischar(prmts.Whisker)
+        whiskerName = prmts.Whisker;
+    else
+        whiskerName = prmts.Whisker{1};
+    end
+    title(sprintf('ROI Signal - %s : %s', prmts.name, whiskerName), 'interpreter', 'none')
 
     % Auto-correlations
     axes(hAutoCorr)

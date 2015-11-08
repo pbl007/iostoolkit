@@ -53,7 +53,7 @@ if prmts.useMotionCorrection
     mGlobChange = zeros(size(ISIdata.frameStack));
     for ti = trials2use
         cFrames = ISIdata.frameStack(ti, :);
-        mFrames = reshape(cell2mat(cFrames), [512 512 size(cFrames, 2)]);
+        mFrames = reshape(cell2mat(cFrames), [ISIdata.frameSizeXY size(cFrames, 2)]);
         mDiffFrames = diff(mFrames, 1, 3);
         mGlobChange(ti, :) = [0; squeeze(sum(sum(abs(mDiffFrames), 1), 2)) ./ numel(mDiffFrames(:,:,1))];
     end

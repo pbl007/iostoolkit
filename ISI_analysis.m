@@ -14,7 +14,7 @@ function [prmts, ISIdata] = ISI_analysis(prmts)
 % 2012.04.03 Added manual mask. PMK
 %
 
-sColMap = 'gray'; %HARDCODED
+sColMap = 'default'; %HARDCODED
 
 % Set the no light file data, subtracting the DC offset
 if prmts.useNoLight
@@ -62,6 +62,7 @@ for iFile = 1 : numel(prmts.filesQueue)
     if isempty(ISIdata) || ...
             (prmts.filesQueue.DoLoad && ~prmts.filesQueue.DoTrialAverage && ~prmts.filesQueue.DoAnalyze)
         % read data
+        fprintf('\nISI_analysis, reading data')
         ISIdata = ISI_read(prmts.filesQueue(iFile));
         
         % store data in GUI
@@ -73,16 +74,17 @@ for iFile = 1 : numel(prmts.filesQueue)
         return
     end
     
-    % Select ROI from vessel map
-    %if prmts.filesQueue(iFile).selectROI
-    %    ISIdata = ISI_selectROI(ISIdata, prmts.filesQueue(iFile));
-    %end
+    % Select ROI from vessel map - enabled PB
+    if prmts.filesQueue(iFile).selectROI
+       ISIdata = ISI_selectROI(ISIdata, prmts.filesQueue(iFile));
+    end
 
     % Compute trial-averaged frames, if:
     % 1) averages have not already been computed, or
     % 2) the Average Trials button was pressed
     if ~isfield(ISIdata, 'deltaSignal') || ...
             (prmts.filesQueue.DoTrialAverage && ~prmts.filesQueue.DoAnalyze)
+        fprintf('\nISI_analysis, averaging trials')
         ISIdata = ISI_calc_dRR(ISIdata, prmts.filesQueue(iFile),Rnolight);
         set(hGUI, 'UserData', ISIdata) % store data in GUI
     end
@@ -95,10 +97,12 @@ for iFile = 1 : numel(prmts.filesQueue)
     ISIdata.climAll = prmts.filesQueue(iFile).climAll ./ 1000;
     
     % Get the average frame over stimulus interval, suppressing the comparison figure
+    fprintf('\nISI_analysis, get average stimulus interval')
     signalFrame = getISIsignalframe(ISIdata, prmts.filesQueue(iFile).stimInterval, 0);
     
     % Plot and save all frames
     if (prmts.saveFigAll)
+        fprintf('\nISI_analysis, plotting all frames')
         ISI_plotAllFrames(ISIdata, ISIdata.climAll, prmts.filesQueue, sColMap);
         drawnow;
         savefilename = fullfile(prmts.filesQueue.path2dir, prmts.filesQueue.name);
@@ -112,15 +116,18 @@ for iFile = 1 : numel(prmts.filesQueue)
     
     % Plot trial-average signal of ROI across time
     if prmts.filesQueue(iFile).selectSignalROI
+        fprintf('\nISI_analysis, plot trial-average signal over ROI')
         %ISI_plotContourByTime(ISIdata, prmts.filesQueue(iFile), sColMap);
         ISIdata = ISI_selectSignalROI(ISIdata, prmts.filesQueue(iFile), sColMap);
         if isfield(ISIdata, 'analysisSignalROI')
+            fprintf('\nISI_analysis, plot signal over ROI')
             ISI_plotSignalByTime(ISIdata, prmts.filesQueue(iFile), sColMap);
         end
     end
 
     % Plot spatial intensity profile of user-selected line across time
     if prmts.filesQueue(iFile).selectSignalProfile
+        fprintf('\nISI_analysis, Plot spatial intensity profile of user-selected line')
         ISIdata = ISI_selectSignalProfile(ISIdata, prmts.filesQueue(iFile), sColMap);
         if isfield(ISIdata, 'analysisSignalProfile')
             ISI_plotProfileByTime(ISIdata, prmts.filesQueue(iFile), sColMap);
@@ -129,6 +136,7 @@ for iFile = 1 : numel(prmts.filesQueue)
     
     % Isolate barrel
     if prmts.filesQueue(iFile).runBarrelFinder
+        fprintf('\nISI_analysis, running barrel finder')
         % Create vessel mask
         vesselfile=fullfile(prmts.filesQueue(iFile).path2dir, prmts.filesQueue(iFile).refImage);
         vthresh=prmts.filesQueue(iFile).maskthresh;
@@ -149,6 +157,7 @@ for iFile = 1 : numel(prmts.filesQueue)
 
     % Generate moving average movie of averaged trials and for all frames
     if prmts.saveMovie
+        fprintf('\nISI_analysis, saving movie')
         %create movie of averaged trials
         ISIdata = ISI_writeMovie(ISIdata, prmts.filesQueue(iFile));
         %ISIdata = ISI_averageTrialsMovingAverage(ISIdata, prmts.filesQueue(iFile));
@@ -164,9 +173,10 @@ for iFile = 1 : numel(prmts.filesQueue)
     [p n e]=fileparts(savefilename);
     
     if prmts.saveToMat
-        if ~strcmp(e,'.mat')
-            matfilename = fullfile(p, [n '.mat']);
-        end
+        fprintf('\nISI_analysis, saving analysis to mat file')
+        %if ~strcmp(e,'.mat')
+            matfilename = fullfile(p, ['ISIAnalysis_' n '.mat']);%avoid confusion wiht data mat files
+        %end
         
         %cut out the frameStack field, since it's huge and unneccessary
         %mjp 2011.10.13

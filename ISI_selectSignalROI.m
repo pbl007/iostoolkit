@@ -17,6 +17,11 @@ sFile = fullfile(prmts.path2dir, prmts.refImage);
 mVesselImg = imread(sFile);
 mVesselImg = mat2gray(mVesselImg);
 
+% cropt to analysis ROI
+% if isfield(prmts,'analysisROI')
+%     ISIdata.analysisROI
+% end
+
 % Display vessel image
 hFig = figure('Name','Select Signal ROI');
 vPos = get(hFig, 'position');
